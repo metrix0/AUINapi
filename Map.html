@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mapa</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    html, body { margin:0; height:100%; background:transparent; }
+    #map { width:100%; height:100%; aspect-ratio:3/4; margin:auto; background: transparent !important;}
+    .pin { width:14px; height:14px; border-radius:50%;
+      box-shadow:0 6px 14px rgba(0,0,0,.18), inset 0 0 0 1.5px rgba(255,255,255,.9);
+      transform:translate(-7px,-7px);
+    }
+    .pin {
+      width:14px;
+      height:14px;
+      border-radius:50%;
+      box-shadow:0 6px 14px rgba(0,0,0,.18), inset 0 0 0 1.5px rgba(255,255,255,.9);
+      transform:translate(-7px,-7px);
+      transition: transform 0.2s ease; /* smooth animation */
+    }
+
+    .pin:hover {
+      transform: translate(-7px,-7px) scale(1.3); /* grows by ~30% */
+    }
+    .pin.pin-1 { background: #5e2612
+    }
+    .pin.pin-2 { background:#2563eb }
+    .pin.pin-3 { background:#22c55e }
+    .pin.pin-4 { background:#f59e0b }
+    .pin.pin-5 { background:#ef4444 }
+    .leaflet-tooltip.custom-tip {
+      background:#101828; color:#fff; border:none; border-radius:10px;
+      padding:8px 10px; box-shadow:0 6px 12px rgba(0,0,0,.15);
+    }
+    .leaflet-tooltip.custom-tip:before { border-top-color:#101828 }
+
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script>
+  function BUILDMAP() {
+    const map = L.map('map', {zoomControl: false, attributionControl: false});
+
+    // Expand into individual business pins
+    const expandedPoints = POINTS.flatMap(city =>
+            city.businesses.map(b => ({
+              cityName: city.name,
+              lat: city.lat,
+              lng: city.lng,
+              cityInfo: city.info,
+              ...b
+            }))
+    );
+
+    // Load São Paulo state GeoJSON
+    fetch('br_sp.json')
+            .then(res => res.json())
+            .then(geojson => {
+              const layer = L.geoJSON(geojson, {
+                style: { color: '#111827', weight: 1, fillColor: '#2563eb', fillOpacity: 0.15 }
+              }).addTo(map);
+
+              map.fitBounds(layer.getBounds());
+
+              // Nested grouping: cityName -> category -> [businesses]
+              const groupedByCity = {};
+              expandedPoints.forEach(p => {
+                const city = p.cityName;
+                const cat = p.category;
+                if (!groupedByCity[city]) groupedByCity[city] = {};
+                if (!groupedByCity[city][cat]) groupedByCity[city][cat] = [];
+                groupedByCity[city][cat].push(p);
+              });
+
+              // For each city, place one pin per category (with pixel offsets so pins don't stack)
+              Object.keys(groupedByCity).forEach(cityName => {
+                const categoriesObj = groupedByCity[cityName];
+                const categoryGroups = Object.values(categoriesObj); // array of arrays (each array = businesses in that category for the city)
+                const n = categoryGroups.length;
+                const start = -(n - 1) / 2;
+
+                categoryGroups.forEach((group, idx) => {
+                  const offsetPx = (start + idx) * 20; // spacing
+                  const lat = group[0].lat;
+                  const lng = group[0].lng;
+
+                  // convert to pixel space and shift
+                  const basePoint = map.latLngToLayerPoint([lat, lng]);
+                  const shiftedPoint = L.point(basePoint.x + offsetPx, basePoint.y);
+                  const shiftedLatLng = map.layerPointToLatLng(shiftedPoint);
+
+                  const category = group[0].category;
+                  const icon = L.divIcon({
+                    className: '',
+                    html: `<div onclick="windows.location = ${cityName.normalize().replace(/\s+/, "")}" class="pin pin-${category}" title="${escapeHtml(cityName)}"></div>`,
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                  });
+
+                  const marker = L.marker(shiftedLatLng, { icon }).addTo(map);
+
+                  // just show logos horizontally
+                  const logosHtml = `
+${(() => {
+                    const imgs = group.filter(b => b.img);
+                    const cols = Math.min(Math.max(imgs.length, 1), 5); // 1..5
+                    return `<div style="
+            display: grid;
+            grid-template-columns: repeat(${cols}, 70px);
+            gap: 6px;
+            margin-top: 6px;
+            width: fit-content; /* shrink to content when fewer than 5 */
+          ">
+            ${imgs.map(b =>
+                            `<img src="${escapeHtml(b.img)}" style="width:70px;height:70px;object-fit:cover;border-radius:6px"/>`
+                    ).join('')}
+          </div>`;
+                  })()}
+        `;
+                  var categ;
+                  if(escapeHtml(String(category)) === "3"){
+                    categ = "Empresas Filhas e Startups"
+                  }
+                  else if(escapeHtml(String(category)) === "4"){
+                    categ = "Parque Tecnológico"
+                  }
+
+                  console.log(categ)
+                  const tip = `
+          <div>
+            <strong>${escapeHtml(cityName)}</strong><br/>
+            <span style="opacity:.85">${escapeHtml(group[0].cityInfo || '')}</span>
+            <hr style="border:0;border-top:1px solid rgba(255,255,255,0.2);margin:6px 0">
+            <div><strong>${categ}</strong></div>
+            ${logosHtml}
+          </div>
+        `;
+
+                  marker.bindTooltip(tip, {
+                    direction: 'top',
+                    offset: [0, -10],
+                    opacity: 1,
+                    className: 'custom-tip'
+                  });
+
+
+                });
+              });
+            });
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;');
+    }
+  }
+</script>
+<script src="map.js"></script>
+</body>
+</html>
