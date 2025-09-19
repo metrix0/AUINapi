@@ -183,13 +183,26 @@ async function updateJSONBin(binId, obj) {
     });
 
     if (!res.ok) {
+
+        const maindiv = document.getElementById("MAIN")
+        maindiv.classList.remove("spinner")
+        maindiv.innerHTML = "Erro:<br>" + res.statusText
+
         throw new Error("Failed to update JSONBin: " + res.statusText);
     }
 
+
+
     const data = await res.json();
     console.log("Updated JSONBin:", data);
+
+    const maindiv = document.getElementById("MAIN")
+    maindiv.classList.remove("spinner")
+    maindiv.innerHTML = "Sucesso! Feche a página."
+
     return data;
 }
+
 
 // Example usage:
 async function testUpdate() {
