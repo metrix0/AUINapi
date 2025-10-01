@@ -38,7 +38,11 @@
       padding:8px 10px; box-shadow:0 6px 12px rgba(0,0,0,.15);
     }
     .leaflet-tooltip.custom-tip:before { border-top-color:#101828 }
-
+    .leaflet-tooltip.custom-tip {
+      max-width: 90vw;
+      white-space: normal;
+      overflow-wrap: break-word;
+    }
   </style>
 </head>
 <body>
@@ -47,7 +51,15 @@
 
 <script>
   function BUILDMAP() {
-    const map = L.map('map', {zoomControl: false, attributionControl: false});
+    const map = L.map('map', {zoomControl: false,
+      attributionControl: false,
+      dragging: false,            // disable dragging
+      scrollWheelZoom: false,     // disable zoom with mouse wheel
+      doubleClickZoom: false,     // disable zoom on double click
+      boxZoom: false,             // disable zoom with box selection
+      keyboard: false,            // disable keyboard controls
+      touchZoom: false,           // disable pinch zoom
+      zoomSnap: false}     )        // disable snapping to zoom levels});
 
     // Expand into individual business pins
     const expandedPoints = POINTS.flatMap(city =>
@@ -61,7 +73,7 @@
     );
 
     // Load São Paulo state GeoJSON
-    fetch('br_sp.json')
+    fetch('https://raw.githubusercontent.com/metrix0/AUINapi/refs/heads/main/br_sp.json')
             .then(res => res.json())
             .then(geojson => {
               const layer = L.geoJSON(geojson, {
@@ -100,7 +112,7 @@
                   const category = group[0].category;
                   const icon = L.divIcon({
                     className: '',
-                    html: `<div onclick="windows.location = ${cityName.normalize().replace(/\s+/, "")}" class="pin pin-${category}" title="${escapeHtml(cityName)}"></div>`,
+                    html: `<div onclick="window.location = 'cidade?c='+\'${cityName.replace(/\s+/, "_").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "")}\'" class="pin pin-${category}" title="${escapeHtml(cityName)}"></div>`,
                     iconSize: [14, 14],
                     iconAnchor: [7, 7]
                   });
@@ -149,6 +161,28 @@ ${(() => {
                     offset: [0, -10],
                     opacity: 1,
                     className: 'custom-tip'
+                  });
+
+                  marker.on('mouseover', function (e) {
+                    const mapSize = map.getSize();
+                    const point = map.latLngToContainerPoint(e.latlng);
+
+                    let direction = 'top';
+                    if (point.y < 350) {   // if too close to top, flip down
+                      direction = 'bottom';
+                    }
+
+                    marker.bindTooltip(tip, {
+                      direction,
+                      offset: [0, -10],
+                      opacity: 1,
+                      className: 'custom-tip',
+                      permanent: false
+                    }).openTooltip();
+                  });
+
+                  marker.on('mouseout', function () {
+                    marker.closeTooltip();
                   });
 
 

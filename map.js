@@ -33,7 +33,7 @@ async function readJSONBin(binId) {
         method: "GET",
         headers: {
             "Content-Type": "application/json",
-            "X-Master-Key": "$2a$10$HPsuTzl4ySSZ3wTT7HfZQ.JJWRPr1QvxqUHHxxnzpivxsE./KJBs2" // if private
+            "X-Master-Key": "$2a$10$HPsuTzl4ySSZ3wTT7HfZQ.JJWRPr1QvxqUHHxxnzpivxsE./KJBs2"
         }
     });
 

@@ -1,33 +1,253 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>Atualizar Mapa</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Atualizar Mapa — Scanner de Imagens</title>
+    <link rel="stylesheet" href="https://unpkg.com/modern-normalize/modern-normalize.css" />
+    <style>
+        body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; padding:18px; background:#0f1724; color:#e6eef8; }
+        h1 { margin:0 0 12px 0; font-size:20px; }
+        #status { margin-bottom:12px; color:#9fb0d7; }
+        .spinner { display:inline-block; width:18px; height:18px; border:3px solid rgba(255,255,255,0.08); border-top:3px solid #60a5fa; border-radius:50%; animation: spin 1s linear infinite; vertical-align:middle; margin-right:8px;}
+        @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+
+        .controls { display:flex; gap:8px; margin-bottom:14px; align-items:center; flex-wrap:wrap }
+        button { background:#2563eb; color:#fff; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; box-shadow: 0 6px 18px rgba(37,99,235,0.14); }
+        button.secondary { background:transparent; border:1px solid rgba(255,255,255,0.06); color:#cfe3ff; }
+
+        #content { max-height:75vh; overflow:auto; padding:10px; border-radius:10px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border: 1px solid rgba(255,255,255,0.03); }
+        .city { margin-bottom:18px; padding:10px; border-radius:8px; background: rgba(255,255,255,0.012); }
+        .city h2 { font-size:16px; margin:0 0 8px 0; color:#eaf4ff }
+        .items { display:flex; flex-direction:column; gap:10px; }
+        .item { display:flex; gap:10px; align-items:flex-start; background: rgba(255,255,255,0.01); padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.02); }
+        .thumb { width:88px; height:88px; border-radius:8px; object-fit:cover; flex-shrink:0; background:#0b1220; display:inline-block; }
+        .meta { flex:1; display:flex; flex-direction:column; gap:6px; }
+        .meta .name { font-weight:700; font-size:13px; color:#fff; }
+        .meta .cityLabel { font-size:12px; color:#9fb0d7 }
+        label { font-size:12px; color:#bcd7ff; display:block; margin-bottom:4px; }
+        input[type="text"], input[type="email"], textarea { width:100%; padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.02); color:#e8f5ff; font-size:13px; }
+        textarea { min-height:60px; resize:vertical; }
+        .row { display:flex; gap:8px; }
+        .row .col { flex:1; }
+        .small { width:140px; flex-shrink:0; }
+
+        .footer { margin-top:12px; display:flex; justify-content:space-between; gap:8px; align-items:center; flex-wrap:wrap; }
+        .note { color:#96b7e7; font-size:13px; }
+
+        .success { color:#86efac }
+        .error { color:#fca5a5 }
+        a.link { color:#60a5fa; text-decoration:none; }
+
+        @media (max-width:720px){
+            .item { flex-direction:column; align-items:stretch; }
+            .small { width:100%; }
+            .row { flex-direction:column; }
+        }
+    </style>
 </head>
-<style>
-    .spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid #f3f3f3; /* Light gray border */
-        border-top: 4px solid #3498db; /* Blue top border for spinning effect */
-        border-radius: 50%;
-        animation: spin 1s linear infinite; /* Apply the animation */
+<body>
+<h1>Atualizar Banco — Scan de Imagens (Drive → JSON)</h1>
+<div id="status"><span class="spinner" id="spinner" style="display:none"></span><span id="status-text">Pronto</span></div>
 
-
-        width: 50px; height: 50px; border: 5px solid #ccc; border-top-color: #333; border-radius: 50%; animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-</style>
-<body style="margin: 0; width: 100vw; height: 100vh">
-
-<div style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; position: relative;">
-    <div id="MAIN" class="spinner" style=""></div>
+<div class="controls">
+    <button id="btn-scan">Scan Google Drive</button>
+    <button id="btn-refresh" class="secondary">Recarregar JSON</button>
+    <button id="btn-confirm" style="margin-left:8px">Confirmar e Atualizar JSON</button>
+    <div style="flex:1"></div>
+    <div class="note">As imagens são agrupadas por <strong>city (nome da pasta)</strong>. <a class="link" href="#" id="open-map">Abrir mapa</a></div>
 </div>
 
+<div id="content"></div>
+
+<div class="footer">
+    <div id="result" class="note"></div>
+    <div><small class="note">JSONBin ID: <strong>68cd783dae596e708ff40d01</strong></small></div>
+</div>
+
+<script>
+    const API_KEY = "AIzaSyBmqHxP_fVxuedJZr2QUj5UQ_C135-VbVk";
+    const ROOT_FOLDER_ID = "1Dd_grfTxzjSYIZx0ingkdfFfaLCr6sHf";
+    const JSON_BIN_ID = "68cd783dae596e708ff40d01";
+    const JSON_MASTER_KEY = "$2a$10$HPsuTzl4ySSZ3wTT7HfZQ.JJWRPr1QvxqUHHxxnzpivxsE./KJBs2";
+
+    function el(tag, props = {}, children = []) {
+        const d = document.createElement(tag);
+        for (const k in props) {
+            if (k === 'html') d.innerHTML = props[k];
+            else if (k === 'text') d.textContent = props[k];
+            else d.setAttribute(k, props[k]);
+        }
+        (Array.isArray(children) ? children : [children]).forEach(c => { if (!c) return; if (typeof c === 'string') d.appendChild(document.createTextNode(c)); else d.appendChild(c); });
+        return d;
+    }
+    function showStatus(txt, isLoading=false, cls="") {
+        document.getElementById('status-text').textContent = txt;
+        document.getElementById('spinner').style.display = isLoading ? 'inline-block' : 'none';
+        const r = document.getElementById('result');
+        r.className = cls;
+        if (!isLoading && txt) r.textContent = txt;
+    }
+    function normalizeName(n) { return String(n || "").replace(/\.[^/.]+$/, "").toUpperCase().trim(); }
+    function normalizeCity(n) { return String(n || "").toUpperCase().trim(); }
+    function directLink(fileId){ return `https://drive.google.com/uc?id=${fileId}`; }
+    function split_image_src(url){ const m = url.match(/id=([^&]+)/); return m ? m[1] : url; }
+    function itemImgUrl(node){ const imgEl = node.querySelector('img.thumb'); return imgEl ? imgEl.src : ''; }
+
+    async function listItems(parentId, mimeFilter = "") {
+        const q = `'${parentId}' in parents and trashed = false` + (mimeFilter ? ` and mimeType ${mimeFilter}` : "");
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&key=${API_KEY}&fields=files(id,name,mimeType)`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Drive list failed: " + res.statusText);
+        const data = await res.json();
+        return data.files || [];
+    }
+    async function buildStructure(folderId, folderName = "ROOT") {
+        const filesObj = {};
+        const folders = await listItems(folderId, "= 'application/vnd.google-apps.folder'");
+        const images = await listItems(folderId, "contains 'image/'");
+        filesObj["_files"] = images.map(img => ({ name: normalizeName(img.name), image_file: directLink(img.id), raw_name: img.name }));
+        filesObj["subfolders"] = [];
+        for (const f of folders) {
+            const sub = await buildStructure(f.id, f.name.toUpperCase());
+            filesObj["subfolders"].push(sub);
+        }
+        return { city: folderName.toUpperCase(), files: filesObj };
+    }
+    async function readJSONBin(binId) {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+            headers: { "Content-Type": "application/json", "X-Master-Key": JSON_MASTER_KEY }
+        });
+        if (!res.ok) throw new Error("Failed to read JSONBin: " + res.statusText);
+        const data = await res.json();
+        return data.record;
+    }
+    async function updateJSONBin(binId, obj) {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "X-Master-Key": JSON_MASTER_KEY },
+            body: JSON.stringify(obj, null, 2)
+        });
+        if (!res.ok) throw new Error("Failed to update JSONBin");
+        return await res.json();
+    }
+
+    let SCAN_STRUCT = null;
+    let JSON_POINTS = null;
+    const content = document.getElementById('content');
+
+    document.getElementById('btn-scan').addEventListener('click', doScan);
+    document.getElementById('btn-refresh').addEventListener('click', loadJSON);
+    document.getElementById('btn-confirm').addEventListener('click', confirmAndUpdate);
+    document.getElementById('open-map').addEventListener('click', (e)=>{ e.preventDefault(); window.open('map.html','_blank'); });
+
+    async function loadJSON(){
+        showStatus('Carregando JSON...', true);
+        try{
+            JSON_POINTS = await readJSONBin(JSON_BIN_ID);
+            showStatus('JSON carregado.', false, 'success');
+        }catch(err){ showStatus('Erro ao carregar JSON: '+err.message, false,'error'); }
+    }
+
+    async function doScan(){
+        showStatus('Escaneando Drive...', true);
+        content.innerHTML='';
+        try{
+            const struct = await buildStructure(ROOT_FOLDER_ID,"ROOT");
+            SCAN_STRUCT=struct;
+            const cityNodes = struct.files.subfolders || [];
+            const entries=[];
+            function gatherCity(node){
+                const cityName=normalizeCity(node.city);
+                (node.files._files||[]).forEach(f=> entries.push({ city:cityName,name:normalizeName(f.name),image_file:f.image_file,raw_name:f.name }));
+                (node.files.subfolders||[]).forEach(gatherCity);
+            }
+            cityNodes.forEach(gatherCity);
+            const groups={};
+            for(const e of entries){ if(!groups[e.city]) groups[e.city]=[]; groups[e.city].push(e);}
+            const sortedCities=Object.keys(groups).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+            if(!JSON_POINTS) await loadJSON();
+
+            content.innerHTML='';
+            for(const city of sortedCities){
+                const cityDiv=el('div',{class:'city'});
+                cityDiv.appendChild(el('h2',{text:city}));
+                const itemsWrap=el('div',{class:'items'});
+                groups[city].sort((a,b)=>a.name.localeCompare(b.name));
+                for(const item of groups[city]){
+                    const itemDiv=el('div',{class:'item'});
+                    const img=el('img',{class:'thumb',src:item.image_file,alt:item.name});
+                    const meta=el('div',{class:'meta'});
+                    let existing=null;
+                    if(JSON_POINTS && Array.isArray(JSON_POINTS)){
+                        const cityObj=JSON_POINTS.find(p=>normalizeCity(p.name||'')===city);
+                        if(cityObj&&Array.isArray(cityObj.businesses)){
+                            existing=cityObj.businesses.find(b=>normalizeName(b.name||'')===item.name);
+                        }
+                    }
+                    const displayName=el('div',{class:'name',text: item.name});
+                    const cityLbl=el('div',{class:'cityLabel',text:city});
+                    const descLabel=el('label',{text:'Descrição'});
+                    const descInput=el('textarea',{placeholder:'Descrição'});
+                    descInput.value=existing?(existing.description||''):'';
+                    const row=el('div',{class:'row'});
+                    const colLeft=el('div',{class:'col'});
+                    const colRight=el('div',{class:'small'});
+                    const emailLabel=el('label',{text:'Email'});
+                    const emailInput=el('input',{type:'email',placeholder:'contato@empresa.com'});
+                    emailInput.value=existing?(existing.email||''):'';
+                    const phoneLabel=el('label',{text:'Telefone'});
+                    const phoneInput=el('input',{type:'text',placeholder:'+55'});
+                    phoneInput.value=existing?(existing.phone||''):'';
+                    itemDiv.dataset.city=city;
+                    itemDiv.dataset.name=item.name;
+                    colLeft.appendChild(descLabel); colLeft.appendChild(descInput);
+                    colRight.appendChild(emailLabel); colRight.appendChild(emailInput);
+                    colRight.appendChild(phoneLabel); colRight.appendChild(phoneInput);
+                    row.appendChild(colLeft); row.appendChild(colRight);
+                    meta.appendChild(displayName); meta.appendChild(cityLbl); meta.appendChild(row);
+                    itemDiv.appendChild(img); itemDiv.appendChild(meta);
+                    itemDiv.__fields={desc:descInput,email:emailInput,phone:phoneInput};
+                    itemsWrap.appendChild(itemDiv);
+                }
+                cityDiv.appendChild(itemsWrap); content.appendChild(cityDiv);
+            }
+            showStatus('Scan concluído.',false,'success');
+        }catch(err){ showStatus('Erro no scan: '+err.message,false,'error'); }
+    }
+
+    async function confirmAndUpdate(){
+        if(!SCAN_STRUCT){ showStatus('Faça o Scan antes.',false,'error'); return; }
+        if(!JSON_POINTS){ showStatus('JSON não carregado.',false,'error'); return; }
+        showStatus('Atualizando JSON...',true);
+        try{
+            const pointsByCity={};
+            const itemNodes=Array.from(content.querySelectorAll('.item'));
+            for(const node of itemNodes){
+                const city=normalizeCity(node.dataset.city||'');
+                const normName=normalizeName(node.dataset.name||'');
+                const desc=node.__fields.desc.value.trim();
+                const email=node.__fields.email.value.trim();
+                const phone=node.__fields.phone.value.trim();
+                if(!pointsByCity[city]) pointsByCity[city]={name:city,lat:0,lng:0,info:city,businesses:[]};
+                let business=pointsByCity[city].businesses.find(b=>normalizeName(b.name||'')===normName);
+                if(!business){
+                    business={ name:normName,
+                        img:"https://drive.google.com/thumbnail?id="+split_image_src(itemImgUrl(node))+"&sz=w200",
+                        description:'',email:'',phone:'',category:3 };
+                    pointsByCity[city].businesses.push(business);
+                }
+                business.description=desc;
+                business.email=email;
+                business.phone=phone;
+            }
+            // ✅ Final struct = exactly what was scanned from Drive
+            const newPoints=Object.values(pointsByCity);
+            await updateJSONBin(JSON_BIN_ID,newPoints);
+            showStatus('JSON atualizado com sucesso!',false,'success');
+        }catch(err){ showStatus('Erro ao atualizar: '+err.message,false,'error'); }
+    }
+    loadJSON();
+</script>
 </body>
 </html>
-<script src="main.js"></script>
