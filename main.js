@@ -129,7 +129,7 @@ function associateGoogleDriveStructToMapPoints(struct){
                     POINTS[j].businesses.push(
                         {
                             name: struct.files.subfolders[i].files._files[k].name,
-                            img: "https://drive.google.com/thumbnail?id="+split_image_src(struct.files.subfolders[i].files._files[k].image_file)+"&sz=w100",
+                            img: "https://drive.google.com/thumbnail?id="+split_image_src(struct.files.subfolders[i].files._files[k].image_file)+"&sz=w200",
                             description: split_description(struct.files.subfolders[i].files._files[k].txt_file),
                             category: parseInt(split_category(struct.files.subfolders[i].files._files[k].txt_file))
                         }
@@ -150,7 +150,7 @@ function split_image_src(str){
 }
 function split_description(str){
     if (str.split("\nDescrição: ") && str.includes("Descrição: "))
-        return str.split("\nDescrição: "[1])
+        return str.split("Descrição: ")[1]
     else return ""
 }
 
