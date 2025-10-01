@@ -70,7 +70,32 @@
     const ROOT_FOLDER_ID = "1Dd_grfTxzjSYIZx0ingkdfFfaLCr6sHf";
     const JSON_BIN_ID = "68cd783dae596e708ff40d01";
     const JSON_MASTER_KEY = "$2a$10$HPsuTzl4ySSZ3wTT7HfZQ.JJWRPr1QvxqUHHxxnzpivxsE./KJBs2";
-
+    const CITY_COORDS = {
+        "ROSANA": {lat:-22.5780,lng:-53.0605},
+        "ILHA SOLTEIRA": {lat:-20.4326,lng:-51.3426},
+        "DRACENA": {lat:-21.4843,lng:-51.5346},
+        "PRESIDENTE PRUDENTE": {lat:-22.1207,lng:-51.3925},
+        "TUPÃ": {lat:-21.9345,lng:-50.5149},
+        "ARAÇATUBA": {lat:-21.2076,lng:-50.4401},
+        "SÃO JOSÉ DO RIO PRETO": {lat:-20.8113,lng:-49.3758},
+        "MARÍLIA": {lat:-22.2171,lng:-49.9501},
+        "ASSIS": {lat:-22.6604,lng:-50.4180},
+        "OURINHOS": {lat:-22.9797,lng:-49.8690},
+        "BAURU": {lat:-22.3145,lng:-49.0600},
+        "BOTUCATU": {lat:-22.8837,lng:-48.4450},
+        "ARARAQUARA": {lat:-21.7845,lng:-48.1780},
+        "JABOTICABAL": {lat:-21.2550,lng:-48.3252},
+        "FRANCA": {lat:-20.5393,lng:-47.4011},
+        "RIO CLARO": {lat:-22.4100,lng:-47.5600},
+        "SÃO JOÃO DA BOA VISTA": {lat:-22.1501,lng:-46.9934},
+        "SOROCABA": {lat:-23.5015,lng:-47.4526},
+        "SÃO PAULO": {lat:-23.5505,lng:-46.6333},
+        "SÃO JOSÉ DOS CAMPOS": {lat:-23.1896,lng:-45.8841},
+        "GUARATINGUETÁ": {lat:-22.8167,lng:-45.1939},
+        "ITAPEVA": {lat:-23.9825,lng:-48.8759},
+        "REGISTRO": {lat:-24.4933,lng:-47.8449},
+        "SÃO VICENTE": {lat:-23.9640,lng:-46.3910}
+    };
     function el(tag, props = {}, children = []) {
         const d = document.createElement(tag);
         for (const k in props) {
@@ -176,8 +201,7 @@
                 groups[city].sort((a,b)=>a.name.localeCompare(b.name));
                 for(const item of groups[city]){
                     const itemDiv=el('div',{class:'item'});
-                    const img=el('img',{class:'thumb',src:item.image_file,alt:item.name});
-                    const meta=el('div',{class:'meta'});
+                    const img=el('img',{class:'thumb',src:"https://drive.google.com/thumbnail?id="+item.image_file.split("id=")[1]+"&sz=w200",alt:item.name});                    const meta=el('div',{class:'meta'});
                     let existing=null;
                     if(JSON_POINTS && Array.isArray(JSON_POINTS)){
                         const cityObj=JSON_POINTS.find(p=>normalizeCity(p.name||'')===city);
@@ -199,15 +223,20 @@
                     const phoneLabel=el('label',{text:'Telefone'});
                     const phoneInput=el('input',{type:'text',placeholder:'+55'});
                     phoneInput.value=existing?(existing.phone||''):'';
+                    const categoryLabel=el('label',{text:'Categoria'});
+                    const categoryInput=el('input',{type:'text',placeholder:'3'});
+                    categoryInput.value=existing?(existing.category||'3'):'3';
                     itemDiv.dataset.city=city;
                     itemDiv.dataset.name=item.name;
                     colLeft.appendChild(descLabel); colLeft.appendChild(descInput);
                     colRight.appendChild(emailLabel); colRight.appendChild(emailInput);
                     colRight.appendChild(phoneLabel); colRight.appendChild(phoneInput);
+                    colRight.appendChild(categoryLabel); colRight.appendChild(categoryInput);
+
                     row.appendChild(colLeft); row.appendChild(colRight);
                     meta.appendChild(displayName); meta.appendChild(cityLbl); meta.appendChild(row);
                     itemDiv.appendChild(img); itemDiv.appendChild(meta);
-                    itemDiv.__fields={desc:descInput,email:emailInput,phone:phoneInput};
+                    itemDiv.__fields={desc:descInput,email:emailInput,phone:phoneInput,category:categoryInput};
                     itemsWrap.appendChild(itemDiv);
                 }
                 cityDiv.appendChild(itemsWrap); content.appendChild(cityDiv);
@@ -229,8 +258,11 @@
                 const desc=node.__fields.desc.value.trim();
                 const email=node.__fields.email.value.trim();
                 const phone=node.__fields.phone.value.trim();
-                if(!pointsByCity[city]) pointsByCity[city]={name:city,lat:0,lng:0,info:city,businesses:[]};
-                let business=pointsByCity[city].businesses.find(b=>normalizeName(b.name||'')===normName);
+                const category=node.__fields.category.value.trim();
+                if(!pointsByCity[city]) {
+                    const coords = CITY_COORDS[city] || {lat:0,lng:0};
+                    pointsByCity[city] = { name:city, lat:coords.lat, lng:coords.lng, info:city, businesses:[] };
+                }                let business=pointsByCity[city].businesses.find(b=>normalizeName(b.name||'')===normName);
                 if(!business){
                     business={ name:normName,
                         img:"https://drive.google.com/thumbnail?id="+split_image_src(itemImgUrl(node))+"&sz=w200",
@@ -240,6 +272,7 @@
                 business.description=desc;
                 business.email=email;
                 business.phone=phone;
+                business.category=category||'3';
             }
             // ✅ Final struct = exactly what was scanned from Drive
             const newPoints=Object.values(pointsByCity);
