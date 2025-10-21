@@ -70,6 +70,7 @@
     const ROOT_FOLDER_ID = "1Dd_grfTxzjSYIZx0ingkdfFfaLCr6sHf";
     const JSON_BIN_ID = "68cd783dae596e708ff40d01";
     const JSON_MASTER_KEY = "$2a$10$HPsuTzl4ySSZ3wTT7HfZQ.JJWRPr1QvxqUHHxxnzpivxsE./KJBs2";
+    const JSON_SILO_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX3V1aWQiOiJrRm9JUlZJQ0ptT3FkbkkwV2VxUHA1Z05lOW0yIiwiaXNzIjoiaHR0cHM6Ly9qc29uc2lsby5jb20iLCJleHAiOjE3NjM2NzgxNzZ9.khjPTHGp74BVPAtFdOf0LwDopjY9dU4q5Rsc-oKV2_Q";
     const CITY_COORDS = {
         "ROSANA": {lat:-22.5780,lng:-53.0605},
         "ILHA SOLTEIRA": {lat:-20.4326,lng:-51.3426},
@@ -140,21 +141,33 @@
         return { city: folderName.toUpperCase(), files: filesObj };
     }
     async function readJSONBin(binId) {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-            headers: { "Content-Type": "application/json", "X-Master-Key": JSON_MASTER_KEY }
-        });
-        if (!res.ok) throw new Error("Failed to read JSONBin: " + res.statusText);
+        const res = await fetch("https://api.jsonsilo.com/public/8e9e5c10-b6d9-4e91-a03c-d93fd8a7ffb7");
+
+        if (!res.ok) {
+            throw new Error("Failed to read JSONSilo: " + res.statusText);
+        }
+
         const data = await res.json();
-        return data.record;
+        console.log("Raw JSONSilo data:", data);
+
+        return data;
     }
     async function updateJSONBin(binId, obj) {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json", "X-Master-Key": JSON_MASTER_KEY },
-            body: JSON.stringify(obj, null, 2)
-        });
-        if (!res.ok) throw new Error("Failed to update JSONBin");
-        return await res.json();
+        const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${binId}.txt`; // uses binId for filename
+        document.body.appendChild(a);
+        a.click();
+
+        // cleanup
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        console.log(`✅ Saved ${binId}.txt locally`);
+        return { success: true, filename: `${binId}.txt` };
     }
 
     let SCAN_STRUCT = null;
@@ -277,7 +290,7 @@
             // ✅ Final struct = exactly what was scanned from Drive
             const newPoints=Object.values(pointsByCity);
             await updateJSONBin(JSON_BIN_ID,newPoints);
-            showStatus('JSON atualizado com sucesso!',false,'success');
+            showStatus('JSON atualizado com sucesso! Envie o arquivo para joao.v.almeida@unesp.br',false,'success');
         }catch(err){ showStatus('Erro ao atualizar: '+err.message,false,'error'); }
     }
     loadJSON();
