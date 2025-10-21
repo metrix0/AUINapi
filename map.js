@@ -29,23 +29,16 @@ var POINTS = [
 // Read a JSONBin by ID and return the parsed object
 
 async function readJSONBin(binId) {
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            "X-Master-Key": "$2a$10$HPsuTzl4ySSZ3wTT7HfZQ.JJWRPr1QvxqUHHxxnzpivxsE./KJBs2"
-        }
-    });
+    const res = await fetch("https://api.jsonsilo.com/public/8e9e5c10-b6d9-4e91-a03c-d93fd8a7ffb7");
 
     if (!res.ok) {
-        throw new Error("Failed to read JSONBin: " + res.statusText);
+        throw new Error("Failed to read JSONSilo: " + res.statusText);
     }
 
     const data = await res.json();
-    console.log("Raw JSONBin data:", data);
+    console.log("Raw JSONSilo data:", data);
 
-    // The actual saved object is inside `data.record`
-    return data.record;
+    return data; // JSONSilo returns the object directly
 }
 
 // Example usage:

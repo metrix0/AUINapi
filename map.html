@@ -138,11 +138,18 @@ ${(() => {
                   })()}
         `;
                   var categ;
+                  console.log(category)
                   if(escapeHtml(String(category)) === "3"){
                     categ = "Empresas Filhas e Startups"
                   }
                   else if(escapeHtml(String(category)) === "4"){
                     categ = "Parque Tecnológico"
+                  }
+                  else if(escapeHtml(String(category)) === "1"){
+                    categ = "Ambientes de Inovação"
+                  }
+                  else if(escapeHtml(String(category)) === "2"){
+                    categ = "Empresas Juniores"
                   }
 
                   console.log(categ)
