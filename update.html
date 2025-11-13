@@ -27,6 +27,29 @@
         .meta .cityLabel { font-size:12px; color:#9fb0d7 }
         label { font-size:12px; color:#bcd7ff; display:block; margin-bottom:4px; }
         input[type="text"], input[type="email"], textarea { width:100%; padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.02); color:#e8f5ff; font-size:13px; }
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.04);
+            background: rgba(255,255,255,0.02);
+            color: #e8f5ff;
+            font-size: 13px;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            cursor: pointer;
+        }
+        select:focus {
+            outline: none;
+            border-color: rgba(96,165,250,0.6); /* same blue glow as buttons */
+            box-shadow: 0 0 0 1px rgba(96,165,250,0.4);
+        }
+        option {
+            background: #0f1724;
+            color: #e8f5ff;
+        }
+
         textarea { min-height:60px; resize:vertical; }
         .row { display:flex; gap:8px; }
         .row .col { flex:1; }
@@ -55,6 +78,7 @@
     <button id="btn-refresh" class="secondary">Recarregar JSON</button>
     <button id="btn-confirm" style="margin-left:8px">Confirmar e Atualizar JSON</button>
     <div style="flex:1"></div>
+    <input id="searchBox" type="text" placeholder="Buscar por nome..." style="padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); color:#e8f5ff; font-size:13px;">
     <div class="note">As imagens são agrupadas por <strong>city (nome da pasta)</strong>. <a class="link" href="#" id="open-map">Abrir mapa</a></div>
 </div>
 
@@ -62,7 +86,7 @@
 
 <div class="footer">
     <div id="result" class="note"></div>
-    <div><small class="note">JSONBin ID: <strong>68cd783dae596e708ff40d01</strong></small></div>
+    <div><small class="note">JSONSilo ID: <strong>8e9e5c10-b6d9-4e91-a03c-d93fd8a7ffb7</strong></small></div>
 </div>
 
 <script>
@@ -170,6 +194,8 @@
         return { success: true, filename: `${binId}.txt` };
     }
 
+
+
     let SCAN_STRUCT = null;
     let JSON_POINTS = null;
     const content = document.getElementById('content');
@@ -236,21 +262,47 @@
                     const phoneLabel=el('label',{text:'Telefone'});
                     const phoneInput=el('input',{type:'text',placeholder:'+55'});
                     phoneInput.value=existing?(existing.phone||''):'';
-                    const categoryLabel=el('label',{text:'Categoria'});
-                    const categoryInput=el('input',{type:'text',placeholder:'3'});
-                    categoryInput.value=existing?(existing.category||'3'):'3';
+                    const categoryLabel = el('label', { text: 'Categoria' });
+                    const categorySelect = el('select', {});
+                    [
+                        { value: '1', text: '1 — Empresas Filhas e Startups' },
+                        { value: '2', text: '2 — Ambientes de Inovação' },
+                        { value: '3', text: '3 — Empresas Juniores' },
+                        { value: '4', text: '4 — Parques Tecnológicos' }
+                    ].forEach(opt => {
+                        const o = el('option', { value: opt.value, text: opt.text });
+                        categorySelect.appendChild(o);
+                    });
+                    categorySelect.value = existing ? (existing.category || '3') : '3';
+
                     itemDiv.dataset.city=city;
                     itemDiv.dataset.name=item.name;
                     colLeft.appendChild(descLabel); colLeft.appendChild(descInput);
-                    colRight.appendChild(emailLabel); colRight.appendChild(emailInput);
-                    colRight.appendChild(phoneLabel); colRight.appendChild(phoneInput);
-                    colRight.appendChild(categoryLabel); colRight.appendChild(categoryInput);
+                    colRight.appendChild(emailLabel);
+                    colRight.appendChild(emailInput);
+                    colRight.appendChild(phoneLabel);
+                    colRight.appendChild(phoneInput);
+                    colRight.appendChild(categoryLabel);
+                    colRight.appendChild(categorySelect);
 
-                    row.appendChild(colLeft); row.appendChild(colRight);
-                    meta.appendChild(displayName); meta.appendChild(cityLbl); meta.appendChild(row);
-                    itemDiv.appendChild(img); itemDiv.appendChild(meta);
-                    itemDiv.__fields={desc:descInput,email:emailInput,phone:phoneInput,category:categoryInput};
+                    row.appendChild(colLeft);
+                    row.appendChild(colRight);
+                    meta.appendChild(displayName);
+                    meta.appendChild(cityLbl);
+                    meta.appendChild(row);
+                    itemDiv.appendChild(img);
+                    itemDiv.appendChild(meta);
+
+// save field references for confirmAndUpdate()
+                    itemDiv.__fields = {
+                        desc: descInput,
+                        email: emailInput,
+                        phone: phoneInput,
+                        category: categorySelect
+                    };
+
                     itemsWrap.appendChild(itemDiv);
+
                 }
                 cityDiv.appendChild(itemsWrap); content.appendChild(cityDiv);
             }
@@ -271,7 +323,7 @@
                 const desc=node.__fields.desc.value.trim();
                 const email=node.__fields.email.value.trim();
                 const phone=node.__fields.phone.value.trim();
-                const category=node.__fields.category.value.trim();
+                const category=node.__fields.category.value;
                 if(!pointsByCity[city]) {
                     const coords = CITY_COORDS[city] || {lat:0,lng:0};
                     pointsByCity[city] = { name:city, lat:coords.lat, lng:coords.lng, info:city, businesses:[] };
@@ -294,6 +346,15 @@
         }catch(err){ showStatus('Erro ao atualizar: '+err.message,false,'error'); }
     }
     loadJSON();
+
+    document.getElementById("searchBox").addEventListener("input", e => {
+        const term = e.target.value.toUpperCase().trim();
+        const items = document.querySelectorAll(".item");
+        items.forEach(it => {
+            const name = it.dataset.name.toUpperCase();
+            it.style.display = name.includes(term) ? "" : "none";
+        });
+    });
 </script>
 </body>
 </html>
